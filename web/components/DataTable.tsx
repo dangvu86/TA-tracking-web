@@ -22,17 +22,17 @@ interface Column {
 
 const COLUMNS: Column[] = [
   { key: "Ticker", label: "Ticker", width: 70, pin: true },
-  { key: "STRENGTH_ST", label: "ST Str", width: 55, format: "round", gradient: "st" },
-  { key: "STRENGTH_LT", label: "LT Str", width: 55, format: "round", gradient: "lt" },
+  { key: "Rating_2_Current", label: "R2 T", width: 45, format: "int", gradient: "r2" },
+  { key: "Rating_2_Prev1", label: "R2 T-1", width: 45, format: "int", gradient: "r2" },
+  { key: "Rating_2_Prev2", label: "R2 T-2", width: 45, format: "int", gradient: "r2" },
   { key: "_sep1", label: "", width: 8, separator: true },
   { key: "Rating_1_Current", label: "R1 T", width: 45, format: "int", gradient: "r1" },
   { key: "Rating_1_Prev1", label: "R1 T-1", width: 45, format: "int", gradient: "r1" },
   { key: "Rating_1_Prev2", label: "R1 T-2", width: 45, format: "int", gradient: "r1" },
-  { key: "_sep2", label: "", width: 8, separator: true },
-  { key: "Rating_2_Current", label: "R2 T", width: 45, format: "int", gradient: "r2" },
-  { key: "Rating_2_Prev1", label: "R2 T-1", width: 45, format: "int", gradient: "r2" },
-  { key: "Rating_2_Prev2", label: "R2 T-2", width: 45, format: "int", gradient: "r2" },
   { key: "MA50_GT_MA200", label: "MA50>200", width: 55 },
+  { key: "_sep2", label: "", width: 8, separator: true },
+  { key: "STRENGTH_ST", label: "ST Str", width: 55, format: "round", gradient: "st" },
+  { key: "STRENGTH_LT", label: "LT Str", width: 55, format: "round", gradient: "lt" },
   { key: "_sep3", label: "", width: 8, separator: true },
   { key: "Price", label: "Price", width: 80, format: "price", align: "right" },
   { key: "% Change", label: "%Chg", width: 60, format: "changePct" },
@@ -134,7 +134,7 @@ export default function DataTable({ results, totals }: DataTableProps) {
   }
 
   return (
-    <div className="overflow-auto border rounded" style={{ maxHeight: 900 }}>
+    <div className="overflow-auto border rounded" style={{ maxHeight: 900, WebkitOverflowScrolling: "touch" }}>
       <table className="data-table border-collapse text-xs w-max">
         {/* Header */}
         <thead className="sticky top-0 z-10">
