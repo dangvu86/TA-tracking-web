@@ -29,12 +29,12 @@ export default function SectorSummary({ sectors, breakthroughUp, breakthroughDow
   return (
     <div className="mb-4">
       <h3 className="text-lg font-semibold mb-2">Sector Summary</h3>
-      <table className="w-full border-collapse bg-white">
+      <table className="border-collapse bg-white" style={{ tableLayout: "auto" }}>
         <thead>
           <tr>
-            <th className="border border-gray-300 p-1.5 text-center text-sm font-bold bg-gray-100" style={{ width: "15%" }}>Rating</th>
-            <th className="border border-gray-300 p-1.5 text-center text-sm font-bold bg-gray-100" style={{ width: "42.5%" }}>Top cao điểm</th>
-            <th className="border border-gray-300 p-1.5 text-center text-sm font-bold bg-gray-100" style={{ width: "42.5%" }}>Top thấp điểm</th>
+            <th className="border border-gray-300 p-1.5 text-center text-sm font-bold bg-gray-100 whitespace-nowrap">Rating</th>
+            <th className="border border-gray-300 p-1.5 text-center text-sm font-bold bg-gray-100">Top cao điểm</th>
+            <th className="border border-gray-300 p-1.5 text-center text-sm font-bold bg-gray-100">Top thấp điểm</th>
           </tr>
         </thead>
         <tbody>
