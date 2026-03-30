@@ -29,11 +29,11 @@ export default function SectorSummary({ sectors, breakthroughUp, breakthroughDow
   return (
     <div className="mb-4">
       <h3 className="text-lg font-semibold mb-2">Sector Summary</h3>
-      <table className="border-collapse bg-white" style={{ tableLayout: "fixed", fontSize: 11, width: 880 }}>
+      <table className="w-full border-collapse bg-white" style={{ tableLayout: "fixed", fontSize: 11, maxWidth: 880 }}>
         <colgroup>
-          <col style={{ width: 130 }} />
-          <col style={{ width: 375 }} />
-          <col style={{ width: 375 }} />
+          <col style={{ width: "15%" }} />
+          <col style={{ width: "42.5%" }} />
+          <col style={{ width: "42.5%" }} />
         </colgroup>
         <thead>
           <tr>
