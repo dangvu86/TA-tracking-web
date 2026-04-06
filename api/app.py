@@ -118,7 +118,7 @@ def analyze(request: AnalyzeRequest):
         start_time = time.time()
 
         # Run parallel analysis
-        results, errors = analyze_stocks_parallel(stock_df, selected_date, max_workers=15)
+        results, errors = analyze_stocks_parallel(stock_df, selected_date, max_workers=5)
 
         elapsed = time.time() - start_time
         logger.info(f"Analysis completed in {elapsed:.1f}s. {len(results)} results, {len(errors)} errors")

@@ -68,3 +68,9 @@ export async function analyzeStocks(date: string): Promise<AnalyzeResponse> {
   }
   return res.json();
 }
+
+export async function fetchLatestStatic(): Promise<AnalyzeResponse> {
+  const res = await fetch("/data/latest.json");
+  if (!res.ok) throw new Error("No pre-computed data available");
+  return res.json();
+}

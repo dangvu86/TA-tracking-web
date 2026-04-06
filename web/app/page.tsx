@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getLastTradingDate, analyzeStocks, AnalyzeResponse } from "@/lib/api";
+import { getLastTradingDate, analyzeStocks, fetchLatestStatic, AnalyzeResponse } from "@/lib/api";
 import SectorSummary from "@/components/SectorSummary";
 import DataTable from "@/components/DataTable";
 
@@ -12,11 +12,20 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [loadedDate, setLoadedDate] = useState<string | null>(null);
 
-  // Get default date on mount
+  // Load pre-computed static data on mount
   useEffect(() => {
-    getLastTradingDate()
-      .then((d) => setDate(d))
-      .catch((e) => setError(`Failed to get trading date: ${e.message}`));
+    fetchLatestStatic()
+      .then((result) => {
+        setData(result);
+        setDate(result.meta.date);
+        setLoadedDate(result.meta.date);
+      })
+      .catch(() => {
+        // Fallback: just get the last trading date
+        getLastTradingDate()
+          .then((d) => setDate(d))
+          .catch((e) => setError(`Failed to get trading date: ${e.message}`));
+      });
   }, []);
 
   const handleRefresh = useCallback(async () => {
@@ -24,6 +33,19 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
+      // Try static data first if date matches pre-computed date
+      try {
+        const staticData = await fetchLatestStatic();
+        if (staticData.meta.date === date) {
+          setData(staticData);
+          setLoadedDate(date);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Static data not available, continue to API
+      }
+      // Fallback to Cloud Run API for other dates
       const result = await analyzeStocks(date);
       setData(result);
       setLoadedDate(date);
@@ -68,8 +90,8 @@ export default function Home() {
             {loadedDate !== date && ` | Selected: ${date} - Click Refresh to update`}
           </span>
         )}
-        {!data && !loading && (
-          <span className="text-sm text-yellow-600">No data loaded. Click Refresh to load data.</span>
+        {!data && !loading && !error && (
+          <span className="text-sm text-yellow-600">Loading latest data...</span>
         )}
       </div>
 
@@ -77,7 +99,7 @@ export default function Home() {
       {loading && (
         <div className="flex items-center gap-3 mb-3 p-3 bg-blue-50 rounded">
           <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full" />
-          <span className="text-sm">Analyzing stocks... This may take 30-40 seconds on first load.</span>
+          <span className="text-sm">Analyzing stocks for {date}... This may take 30-40 seconds.</span>
         </div>
       )}
 

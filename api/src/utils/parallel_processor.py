@@ -1,6 +1,7 @@
 """
 Parallel processing utilities for stock analysis (no Streamlit dependency)
 """
+import gc
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Tuple
 import pandas as pd
@@ -121,7 +122,7 @@ def analyze_single_stock(ticker: str, sector: str, exchange: str, selected_date_
 
 
 def analyze_stocks_parallel(stock_df: pd.DataFrame, selected_date_dt: datetime,
-                           max_workers: int = 15, progress_callback=None) -> Tuple[List[Dict], List[str]]:
+                           max_workers: int = 5, progress_callback=None) -> Tuple[List[Dict], List[str]]:
     """Analyze multiple stocks in parallel using ThreadPoolExecutor"""
     results = []
     errors = []
@@ -176,5 +177,6 @@ def analyze_stocks_parallel(stock_df: pd.DataFrame, selected_date_dt: datetime,
 
     ticker_order = {row['Ticker']: idx for idx, row in stock_df.iterrows()}
     results.sort(key=lambda x: ticker_order.get(x['Ticker'], 999))
+    gc.collect()
 
     return results, errors
