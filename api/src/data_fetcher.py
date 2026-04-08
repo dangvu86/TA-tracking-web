@@ -95,6 +95,8 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
         df.reset_index(inplace=True)
         df.columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends', 'Stock Splits']
         df = df[df['Date'].dt.date <= end_date.date()]
+        # Drop rows where Close is NaN (Yahoo sometimes returns in-progress rows with no price yet)
+        df = df.dropna(subset=['Close'])
 
         _set_cache(cache_key, df)
         return df
