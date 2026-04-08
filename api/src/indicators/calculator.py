@@ -105,6 +105,7 @@ def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
         data['Close_vs_MA10'] = ((data['Close'] - data['SMA_10']) / data['SMA_10'] * 100)
         data['Close_vs_MA20'] = ((data['Close'] - data['SMA_20']) / data['SMA_20'] * 100)
         data['Close_vs_MA50'] = ((data['Close'] - data['SMA_50']) / data['SMA_50'] * 100)
+        data['Close_vs_MA100'] = ((data['Close'] - data['SMA_100']) / data['SMA_100'] * 100)
         data['Close_vs_MA200'] = ((data['Close'] - data['SMA_200']) / data['SMA_200'] * 100)
         
         # STRENGTH calculations (average of Close vs. MA comparisons)
@@ -229,6 +230,7 @@ def get_latest_indicators(df: pd.DataFrame, target_date: pd.Timestamp) -> dict:
             'Close_vs_MA10': latest_row.get('Close_vs_MA10', np.nan),
             'Close_vs_MA20': latest_row.get('Close_vs_MA20', np.nan),
             'Close_vs_MA50': latest_row.get('Close_vs_MA50', np.nan),
+            'Close_vs_MA100': latest_row.get('Close_vs_MA100', np.nan),
             'Close_vs_MA200': latest_row.get('Close_vs_MA200', np.nan),
             
             # STRENGTH calculations

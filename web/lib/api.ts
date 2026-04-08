@@ -18,6 +18,7 @@ export interface StockResult {
   Close_vs_MA10: number | null;
   Close_vs_MA20: number | null;
   Close_vs_MA50: number | null;
+  Close_vs_MA100: number | null;
   Close_vs_MA200: number | null;
   [key: string]: unknown;
 }

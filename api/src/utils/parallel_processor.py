@@ -91,6 +91,7 @@ def analyze_single_stock(ticker: str, sector: str, exchange: str, selected_date_
             'Close_vs_MA10': indicators.get('Close_vs_MA10', np.nan),
             'Close_vs_MA20': indicators.get('Close_vs_MA20', np.nan),
             'Close_vs_MA50': indicators.get('Close_vs_MA50', np.nan),
+            'Close_vs_MA100': indicators.get('Close_vs_MA100', np.nan),
             'Close_vs_MA200': indicators.get('Close_vs_MA200', np.nan),
             'STRENGTH_ST': indicators.get('STRENGTH_ST', np.nan),
             'STRENGTH_LT': indicators.get('STRENGTH_LT', np.nan),

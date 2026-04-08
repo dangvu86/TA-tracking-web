@@ -36,10 +36,10 @@ const COLUMNS: Column[] = [
   { key: "_sep3", label: "", width: 8, separator: true },
   { key: "Price", label: "Price", width: 80, format: "price", align: "right" },
   { key: "% Change", label: "%Chg", width: 60, format: "changePct" },
-  { key: "Close_vs_MA5", label: "vs MA5", width: 60, format: "changePct", gradient: "ma" },
   { key: "Close_vs_MA10", label: "vs MA10", width: 60, format: "changePct", gradient: "ma" },
   { key: "Close_vs_MA20", label: "vs MA20", width: 60, format: "changePct", gradient: "ma" },
   { key: "Close_vs_MA50", label: "vs MA50", width: 60, format: "changePct", gradient: "ma" },
+  { key: "Close_vs_MA100", label: "vs MA100", width: 60, format: "changePct", gradient: "ma" },
   { key: "Close_vs_MA200", label: "vs MA200", width: 60, format: "changePct", gradient: "ma" },
   { key: "Sector", label: "Sector", width: 60 },
 ];

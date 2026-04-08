@@ -47,7 +47,7 @@ def fetch_vnmidcap_from_sheets() -> Optional[pd.DataFrame]:
             if row.isna().all():
                 continue
             first_val = str(row.iloc[0]).strip() if not pd.isna(row.iloc[0]) else ""
-            if re.match(r'\d{1,2}/\d{1,2}/\d{4}', first_val):
+            if re.match(r'\d{1,2}/\d{1,2}/\d{4}', first_val) or re.match(r'\d{4}-\d{1,2}-\d{1,2}', first_val):
                 data_row = i
                 break
 
