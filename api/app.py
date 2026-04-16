@@ -9,7 +9,7 @@ import math
 from datetime import datetime
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
@@ -217,10 +217,15 @@ def _run_analysis(selected_date: datetime) -> dict:
 
 
 @app.post("/api/generate")
-def generate_and_upload(x_generate_token: str = Header(None, alias="X-Generate-Token")):
-    """Run analysis for the latest trading date and publish JSON to Cloud Storage.
+def generate_and_upload(
+    x_generate_token: str = Header(None, alias="X-Generate-Token"),
+    date: Optional[str] = Query(None, description="Optional YYYY-MM-DD to backfill a past date; defaults to latest trading date"),
+    update_latest: bool = Query(True, description="Whether to also update latest.json pointer (set false for backfill)"),
+):
+    """Run analysis for a trading date and publish JSON to Cloud Storage.
 
-    Triggered by Cloud Scheduler daily at 15:45 VN time.
+    Triggered by Cloud Scheduler daily at 15:00 VN time (no args = latest date).
+    For backfill, pass ?date=YYYY-MM-DD&update_latest=false.
     Auth: caller must send the X-Generate-Token header matching the GENERATE_TOKEN env var.
     """
     expected_token = os.getenv("GENERATE_TOKEN")
@@ -234,12 +239,18 @@ def generate_and_upload(x_generate_token: str = Header(None, alias="X-Generate-T
         raise HTTPException(status_code=500, detail="GCS_BUCKET not configured on server")
 
     try:
-        selected_date = get_last_trading_date()
+        if date:
+            try:
+                selected_date = datetime.strptime(date, "%Y-%m-%d")
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid date format: {date}, expected YYYY-MM-DD")
+        else:
+            selected_date = get_last_trading_date()
         date_str = selected_date.strftime("%Y-%m-%d")
 
         response = _run_analysis(selected_date)
 
-        uploaded = upload_analysis(bucket, date_str, response)
+        uploaded = upload_analysis(bucket, date_str, response, update_latest=update_latest)
         if not uploaded:
             raise HTTPException(status_code=500, detail="GCS upload failed (see logs)")
 

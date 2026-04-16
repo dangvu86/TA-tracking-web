@@ -21,13 +21,20 @@ except ImportError as e:
     logger.warning(f"google-cloud-storage not installed: {e}")
 
 
-def upload_analysis(bucket_name: str, date_str: str, data: dict) -> bool:
-    """Upload analysis result to GCS archive + latest pointer.
+def upload_analysis(
+    bucket_name: str,
+    date_str: str,
+    data: dict,
+    update_latest: bool = True,
+) -> bool:
+    """Upload analysis result to GCS archive (+ optionally latest pointer).
 
     Args:
         bucket_name: GCS bucket name (e.g., "ta-tracking-data")
         date_str: Date string in YYYY-MM-DD format
         data: Analysis payload (dict matching AnalyzeResponse schema)
+        update_latest: If True (default) also overwrites latest.json. Set False
+            when backfilling a historical date so today's pointer isn't clobbered.
 
     Returns:
         True on success, False on failure.
@@ -41,20 +48,17 @@ def upload_analysis(bucket_name: str, date_str: str, data: dict) -> bool:
         client = storage.Client()
         bucket = client.bucket(bucket_name)
 
-        # Archive file — 1 hour cache (historical data doesn't change)
         archive = bucket.blob(f"analysis/{date_str}.json")
         archive.cache_control = "public, max-age=3600"
         archive.upload_from_string(payload, content_type="application/json; charset=utf-8")
+        logger.info(f"Uploaded gs://{bucket_name}/analysis/{date_str}.json ({len(payload):,} bytes)")
 
-        # Latest pointer — 5 min cache (new data may arrive shortly)
-        latest = bucket.blob("latest.json")
-        latest.cache_control = "public, max-age=300"
-        latest.upload_from_string(payload, content_type="application/json; charset=utf-8")
+        if update_latest:
+            latest = bucket.blob("latest.json")
+            latest.cache_control = "public, max-age=300"
+            latest.upload_from_string(payload, content_type="application/json; charset=utf-8")
+            logger.info(f"Updated gs://{bucket_name}/latest.json")
 
-        logger.info(
-            f"Uploaded {len(payload):,} bytes to gs://{bucket_name}/analysis/{date_str}.json "
-            f"and gs://{bucket_name}/latest.json"
-        )
         return True
     except Exception as e:
         logger.error(f"GCS upload failed: {e}", exc_info=True)
