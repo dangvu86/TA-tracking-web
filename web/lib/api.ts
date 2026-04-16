@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export interface StockResult {
   Sector: string;
@@ -70,8 +70,14 @@ export async function analyzeStocks(date: string): Promise<AnalyzeResponse> {
   return res.json();
 }
 
-export async function fetchLatestStatic(): Promise<AnalyzeResponse> {
-  const res = await fetch("/data/latest.json");
-  if (!res.ok) throw new Error("No pre-computed data available");
+export async function fetchLatestStatic(date?: string): Promise<AnalyzeResponse> {
+  const url = date ? `/api/data?date=${encodeURIComponent(date)}` : "/api/data";
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error(date ? `No data for ${date}` : "No data available");
+    }
+    throw new Error(`Failed to fetch data (HTTP ${res.status})`);
+  }
   return res.json();
 }

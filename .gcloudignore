@@ -1,0 +1,36 @@
+# Files ignored by gcloud run deploy --source
+# Everything under these paths stays out of the Cloud Build context.
+
+.git/
+.github/
+.gitignore
+.vercel/
+.vscode/
+.playwright-mcp/
+
+# Frontend is deployed separately to Vercel
+web/
+
+# Docs + one-shot scripts
+docs/
+scripts/
+*.md
+LICENSE
+
+# Python local caches
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editor / OS junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Test + misc
+test_esg.py
+*.log

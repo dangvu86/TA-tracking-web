@@ -1,10 +1,11 @@
-name: Daily TA Analysis
+name: Daily TA Analysis (manual backup)
 
+# Scheduled runs moved to Cloud Scheduler + Cloud Run /api/generate.
+# Kept as manual backup in case Cloud Run/GCP pipeline fails.
 on:
-  schedule:
-    # 08:45 UTC = 15:45 Vietnam time (after market close at 15:00)
-    - cron: '45 8 * * 1-5'
-  workflow_dispatch: # Allow manual trigger
+  # schedule:
+  #   - cron: '45 8 * * 1-5'  # Disabled: replaced by Cloud Scheduler
+  workflow_dispatch:
 
 jobs:
   generate:
@@ -32,7 +33,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add web/public/data/latest.json
           git diff --staged --quiet && echo "No changes" && exit 0
-          git commit -m "data: update latest.json for $(date -u +%Y-%m-%d)"
+          DATA_DATE=$(python -c "import json; print(json.load(open('web/public/data/latest.json'))['meta']['date'])")
+          git commit -m "data: update latest.json for ${DATA_DATE}"
           git push
 
       - name: Setup Node.js

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getLastTradingDate, analyzeStocks, fetchLatestStatic, AnalyzeResponse } from "@/lib/api";
+import { fetchLatestStatic, AnalyzeResponse } from "@/lib/api";
 import SectorSummary from "@/components/SectorSummary";
 import DataTable from "@/components/DataTable";
 
@@ -12,7 +12,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [loadedDate, setLoadedDate] = useState<string | null>(null);
 
-  // Load pre-computed static data on mount
+  // Load pre-computed latest data on mount
   useEffect(() => {
     fetchLatestStatic()
       .then((result) => {
@@ -20,12 +20,7 @@ export default function Home() {
         setDate(result.meta.date);
         setLoadedDate(result.meta.date);
       })
-      .catch(() => {
-        // Fallback: just get the last trading date
-        getLastTradingDate()
-          .then((d) => setDate(d))
-          .catch((e) => setError(`Failed to get trading date: ${e.message}`));
-      });
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load data"));
   }, []);
 
   const handleRefresh = useCallback(async () => {
@@ -33,24 +28,12 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      // Try static data first if date matches pre-computed date
-      try {
-        const staticData = await fetchLatestStatic();
-        if (staticData.meta.date === date) {
-          setData(staticData);
-          setLoadedDate(date);
-          setLoading(false);
-          return;
-        }
-      } catch {
-        // Static data not available, continue to API
-      }
-      // Fallback to Cloud Run API for other dates
-      const result = await analyzeStocks(date);
+      // Fetch pre-computed archive for the selected date (no realtime compute)
+      const result = await fetchLatestStatic(date);
       setData(result);
       setLoadedDate(date);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Analysis failed");
+      setError(e instanceof Error ? e.message : "Failed to load data for this date");
     } finally {
       setLoading(false);
     }
@@ -80,7 +63,7 @@ export default function Home() {
           disabled={loading || !date}
           className="bg-blue-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
-          {loading ? "Analyzing..." : "Refresh Data"}
+          {loading ? "Loading..." : "Load Date"}
         </button>
 
         {/* Status */}
@@ -99,7 +82,7 @@ export default function Home() {
       {loading && (
         <div className="flex items-center gap-3 mb-3 p-3 bg-blue-50 rounded">
           <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full" />
-          <span className="text-sm">Analyzing stocks for {date}... This may take 30-40 seconds.</span>
+          <span className="text-sm">Loading data for {date}...</span>
         </div>
       )}
 

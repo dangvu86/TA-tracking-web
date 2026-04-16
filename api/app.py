@@ -9,7 +9,7 @@ import math
 from datetime import datetime
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
@@ -22,6 +22,7 @@ from src.utils.stock_loader import load_stock_list
 from src.utils.parallel_processor import analyze_stocks_parallel
 from src.utils.sector_analysis import analyze_sectors_new
 from src.data_fetcher import get_last_trading_date
+from src.gcs_writer import upload_analysis
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -168,6 +169,92 @@ def analyze(request: AnalyzeRequest):
         raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
     except Exception as e:
         logger.error(f"Analysis error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _run_analysis(selected_date: datetime) -> dict:
+    """Shared analysis routine used by /api/analyze and /api/generate."""
+    csv_path = os.path.join(os.path.dirname(__file__), "TA_Tracking_List.csv")
+    stock_df = load_stock_list(csv_path)
+
+    logger.info(f"Starting analysis for {len(stock_df)} stocks on {selected_date.date()}")
+    start_time = time.time()
+
+    results, errors = analyze_stocks_parallel(stock_df, selected_date, max_workers=5)
+    elapsed = time.time() - start_time
+    logger.info(f"Analysis completed in {elapsed:.1f}s. {len(results)} results, {len(errors)} errors")
+
+    df_results = pd.DataFrame(results)
+
+    totals = {}
+    numeric_cols = ['STRENGTH_ST', 'STRENGTH_LT', 'Rating_1_Current', 'Rating_1_Prev1',
+                    'Rating_1_Prev2', 'Rating_2_Current', 'Rating_2_Prev1', 'Rating_2_Prev2']
+    for col in numeric_cols:
+        if col in df_results.columns:
+            vals = pd.to_numeric(df_results[col], errors='coerce')
+            totals[col] = _clean_value(vals.sum())
+
+    sector_analysis = {}
+    if not df_results.empty:
+        try:
+            sector_analysis = analyze_sectors_new(df_results)
+        except Exception as e:
+            logger.error(f"Sector analysis error: {e}")
+
+    clean_results = [_clean_row(r) for r in results]
+
+    return {
+        "results": clean_results,
+        "sectors": sector_analysis,
+        "totals": totals,
+        "errors": errors,
+        "meta": {
+            "date": selected_date.strftime("%Y-%m-%d"),
+            "total_stocks": len(results),
+            "elapsed_seconds": round(elapsed, 1),
+        },
+    }
+
+
+@app.post("/api/generate")
+def generate_and_upload(x_generate_token: str = Header(None, alias="X-Generate-Token")):
+    """Run analysis for the latest trading date and publish JSON to Cloud Storage.
+
+    Triggered by Cloud Scheduler daily at 15:45 VN time.
+    Auth: caller must send the X-Generate-Token header matching the GENERATE_TOKEN env var.
+    """
+    expected_token = os.getenv("GENERATE_TOKEN")
+    if not expected_token:
+        raise HTTPException(status_code=500, detail="GENERATE_TOKEN not configured on server")
+    if x_generate_token != expected_token:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Generate-Token")
+
+    bucket = os.getenv("GCS_BUCKET")
+    if not bucket:
+        raise HTTPException(status_code=500, detail="GCS_BUCKET not configured on server")
+
+    try:
+        selected_date = get_last_trading_date()
+        date_str = selected_date.strftime("%Y-%m-%d")
+
+        response = _run_analysis(selected_date)
+
+        uploaded = upload_analysis(bucket, date_str, response)
+        if not uploaded:
+            raise HTTPException(status_code=500, detail="GCS upload failed (see logs)")
+
+        return {
+            "status": "ok",
+            "date": date_str,
+            "total_stocks": response["meta"]["total_stocks"],
+            "elapsed_seconds": response["meta"]["elapsed_seconds"],
+            "errors": len(response["errors"]),
+            "bucket": bucket,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Generate error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
