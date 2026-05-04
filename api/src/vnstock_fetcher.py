@@ -142,7 +142,12 @@ def _normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     df["Stock Splits"] = 0
 
     df = df[["Date", "Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits"]]
-    df = df.dropna(subset=["Close"]).sort_values("Date").reset_index(drop=True)
+    df = (
+        df.dropna(subset=["Close"])
+          .drop_duplicates(subset=["Date"], keep="last")
+          .sort_values("Date")
+          .reset_index(drop=True)
+    )
     return df
 
 
