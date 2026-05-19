@@ -117,7 +117,7 @@ def _raw_fetch(symbol: str, start_date: str, end_date: str) -> Optional[pd.DataF
     return None
 
 
-def _normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
+def _normalize_ohlcv(df: pd.DataFrame, multiply_price: bool = True) -> pd.DataFrame:
     """Convert vnstock output to match google_drive_fetcher format.
 
     google_drive_fetcher returns:
@@ -134,8 +134,10 @@ def _normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     df["Date"] = pd.to_datetime(df["Date"])
 
     # vnstock returns prices in thousand VND; multiply to match Google Drive path (full VND)
+    # Indices (VNINDEX etc.) are already in points, so skip the multiplication.
+    scale = 1000 if multiply_price else 1
     for col in ["Open", "High", "Low", "Close"]:
-        df[col] = pd.to_numeric(df[col], errors="coerce") * 1000
+        df[col] = pd.to_numeric(df[col], errors="coerce") * scale
 
     df["Volume"] = pd.to_numeric(df["Volume"], errors="coerce")
     df["Dividends"] = 0
@@ -151,9 +153,9 @@ def _normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def fetch_vnstock_stock_data(ticker: str, period_days: int = 365) -> Optional[pd.DataFrame]:
+def fetch_vnstock_stock_data(ticker: str, period_days: int = 365, multiply_price: bool = True) -> Optional[pd.DataFrame]:
     """Fetch OHLCV for a single ticker via vnstock. Drop-in replacement for fetch_gdrive_stock_data."""
-    cache_key = f"vnstock_{ticker}_{period_days}"
+    cache_key = f"vnstock_{ticker}_{period_days}_{multiply_price}"
     cached = _get_cached(cache_key, ttl=300)
     if cached is not None:
         return cached
@@ -165,7 +167,7 @@ def fetch_vnstock_stock_data(ticker: str, period_days: int = 365) -> Optional[pd
         return None
 
     try:
-        df = _normalize_ohlcv(raw)
+        df = _normalize_ohlcv(raw, multiply_price=multiply_price)
     except Exception as e:
         logger.warning(f"Error normalizing {ticker}: {e}")
         return None
@@ -175,8 +177,10 @@ def fetch_vnstock_stock_data(ticker: str, period_days: int = 365) -> Optional[pd
 
 
 def fetch_vnstock_index_data(ticker: str, period_days: int = 365) -> Optional[pd.DataFrame]:
-    """Fetch index data (VNINDEX, HNX, etc.) via vnstock."""
-    return fetch_vnstock_stock_data(ticker, period_days)
+    """Fetch index data (VNINDEX, HNX, etc.) via vnstock.
+    Index values are already in points — do not multiply by 1000.
+    """
+    return fetch_vnstock_stock_data(ticker, period_days, multiply_price=False)
 
 
 def prewarm_tickers(tickers: list, period_days: int = 365) -> dict:
