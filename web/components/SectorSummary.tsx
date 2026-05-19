@@ -16,6 +16,7 @@ const SECTOR_ORDER = [
   "Xuất khẩu",
   "Ngân hàng",
   "FAV",
+  "Tech",
 ];
 
 function RatingText({ ticker, rating, color }: { ticker: string; rating: number; color: string }) {
