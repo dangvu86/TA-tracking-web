@@ -14,7 +14,8 @@ SECTOR_MAPPING = {
     'XK': 'Xuất khẩu',
     'NH': 'Ngân hàng',
     'FAV': 'FAV',
-    'Tech': 'Tech'
+    'Tech': 'Tech',
+    'Rubber': 'Cao su'
 }
 
 # Different top/bottom counts per sector as shown in the image
@@ -26,7 +27,8 @@ SECTOR_COUNTS = {
     'Xuất khẩu': {'top': 2, 'bottom': 2},
     'Ngân hàng': {'top': 3, 'bottom': 3},
     'FAV': {'top': 3, 'bottom': 3},
-    'Tech': {'top': 2, 'bottom': 2}
+    'Tech': {'top': 2, 'bottom': 2},
+    'Cao su': {'top': 2, 'bottom': 2}
 }
 
 
@@ -143,7 +145,7 @@ def create_sector_dataframe(sector_analysis):
     # Define sector order as shown in the image
     sector_order = [
         'Chứng khoán', 'Bất động sản', 'Xây dựng & ĐTC, VLXD', 'Dầu, Hàng không, Agri',
-        'Xuất khẩu', 'Ngân hàng', 'FAV', 'Tech'
+        'Xuất khẩu', 'Ngân hàng', 'FAV', 'Tech', 'Cao su'
     ]
 
     rows = []
