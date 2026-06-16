@@ -51,10 +51,17 @@ def clean_row(row: dict) -> dict:
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--date", help="Trading date YYYY-MM-DD (default: latest)")
+    args = parser.parse_args()
+
     start_time = time.time()
 
-    # Get latest trading date
-    selected_date = get_last_trading_date()
+    if args.date:
+        selected_date = datetime.strptime(args.date, "%Y-%m-%d")
+    else:
+        selected_date = get_last_trading_date()
     date_str = selected_date.strftime("%Y-%m-%d")
     logger.info(f"Generating analysis for {date_str}")
 
