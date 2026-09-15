@@ -7,6 +7,10 @@ import time
 
 from .google_sheets_simple import fetch_vnmidcap_from_sheets
 from .google_drive_fetcher import fetch_gdrive_stock_data, is_ticker_in_gdrive
+from .fireant_fetcher import (
+    fetch_fireant_data,
+    get_last_trading_date as fireant_last_trading_date,
+)
 from .vnstock_fetcher import (
     fetch_vnstock_stock_data,
     fetch_vnstock_index_data,
@@ -36,8 +40,8 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
 
     Data Source Priority:
     1. VNMIDCAP -> Google Sheets (exclusive, vnstock does not provide this index)
-    2. VNINDEX -> vnstock (primary) -> Google Drive (fallback)
-    3. Vietnamese stocks (HOSE/HNX/UPCOM) -> vnstock (primary) -> Google Drive (fallback)
+    2. VNINDEX -> FireAnt (primary) -> vnstock -> Google Drive (fallback)
+    3. Vietnamese stocks (HOSE/HNX/UPCOM) -> FireAnt (primary) -> vnstock -> Google Drive (fallback)
     4. US indices -> Yahoo Finance
     5. Fallback -> Yahoo Finance
     """
@@ -59,8 +63,15 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
                 logger.error(f"Failed to fetch VNMIDCAP data from Google Sheets for {ticker}")
                 return None
 
-        # VNINDEX: vnstock primary -> Google Drive fallback
+        # VNINDEX: FireAnt primary -> vnstock -> Google Drive fallback
         elif ticker == 'VNINDEX':
+            df = fetch_fireant_data(ticker, period_days)
+            if df is not None and not df.empty:
+                df = df[df['Date'].dt.date <= end_date.date()]
+                _set_cache(cache_key, df)
+                return df
+            logger.info(f"FireAnt returned no data for {ticker}, falling back to vnstock")
+
             if is_vnstock_ready():
                 df = fetch_vnstock_index_data(ticker, period_days)
                 if df is not None and not df.empty:
@@ -80,8 +91,15 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
             logger.warning(f"Could not fetch VNINDEX data from vnstock or Google Drive")
             return None
 
-        # Vietnamese stocks: vnstock primary -> Google Drive fallback -> Yahoo
+        # Vietnamese stocks: FireAnt primary -> vnstock -> Google Drive fallback -> Yahoo
         elif exchange in ['HOSE', 'HNX', 'UPCOM'] or is_ticker_in_gdrive(ticker):
+            df = fetch_fireant_data(ticker, period_days)
+            if df is not None and not df.empty:
+                df = df[df['Date'].dt.date <= end_date.date()]
+                _set_cache(cache_key, df)
+                return df
+            logger.info(f"FireAnt returned no data for {ticker}, falling back to vnstock")
+
             if is_vnstock_ready():
                 df = fetch_vnstock_stock_data(ticker, period_days)
                 if df is not None and not df.empty:
@@ -131,8 +149,12 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
 def get_last_trading_date() -> datetime:
     """Get the last trading date based on available data.
 
-    Priority: vnstock (live, most reliable) -> Google Drive -> weekend heuristic.
+    Priority: FireAnt -> vnstock -> Google Drive -> weekend heuristic.
     """
+    fa_latest = fireant_last_trading_date()
+    if fa_latest is not None:
+        return fa_latest
+
     if is_vnstock_ready():
         vn_latest = vnstock_last_trading_date()
         if vn_latest is not None:

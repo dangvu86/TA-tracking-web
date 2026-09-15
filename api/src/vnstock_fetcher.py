@@ -54,6 +54,10 @@ BATCH_SIZE = 5
 BATCH_DELAY_SECONDS = 15
 SINGLE_RETRY_DELAY = 3
 
+# Sources that failed to connect in this process; skipped on later calls so one
+# unreachable host (e.g. KBS timing out) can't eat the whole request budget.
+_dead_sources = set()
+
 # In-memory cache
 _cache = {}
 _cache_ts = {}
@@ -81,6 +85,11 @@ def _is_rate_limit_error(exc) -> bool:
     )
 
 
+def _is_connection_error(exc) -> bool:
+    msg = str(exc).lower()
+    return any(k in msg for k in ("timed out", "connecttimeout", "max retries exceeded", "connection refused", "name resolution"))
+
+
 def _parse_wait_seconds(exc) -> int:
     msg = str(exc)
     match = re.search(r"chờ\s+(\d+)\s+giây", msg, re.IGNORECASE)
@@ -98,7 +107,7 @@ def _raw_fetch(symbol: str, start_date: str, end_date: str) -> Optional[pd.DataF
         logger.error(f"vnstock not ready: {_VNSTOCK_ERROR}")
         return None
 
-    sources = ["KBS", "VCI"]
+    sources = [s for s in ["KBS", "VCI"] if s not in _dead_sources]
     for source in sources:
         for attempt in range(3):
             try:
@@ -111,6 +120,10 @@ def _raw_fetch(symbol: str, start_date: str, end_date: str) -> Optional[pd.DataF
                     wait_sec = _parse_wait_seconds(e)
                     logger.warning(f"[{symbol}/{source}] rate limit, waiting {wait_sec}s")
                     time.sleep(wait_sec)
+                elif _is_connection_error(e):
+                    logger.warning(f"[{symbol}/{source}] unreachable, skipping source: {e}")
+                    _dead_sources.add(source)
+                    break
                 elif attempt == 0:
                     time.sleep(SINGLE_RETRY_DELAY)
                 continue
