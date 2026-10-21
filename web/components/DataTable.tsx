@@ -14,6 +14,7 @@ interface Column {
   label: string;
   width: number;
   pin?: boolean;
+  left?: number;
   format?: string;
   gradient?: string;
   separator?: boolean;
@@ -21,19 +22,16 @@ interface Column {
 }
 
 const COLUMNS: Column[] = [
-  { key: "Ticker", label: "Ticker", width: 70, pin: true },
-  { key: "Rating_2_Current", label: "R2 T", width: 45, format: "int", gradient: "r2" },
-  { key: "Rating_2_Prev1", label: "R2 T-1", width: 45, format: "int", gradient: "r2" },
-  { key: "Rating_2_Prev2", label: "R2 T-2", width: 45, format: "int", gradient: "r2" },
-  { key: "_sep1", label: "", width: 8, separator: true },
+  { key: "_stt", label: "STT", width: 35, pin: true, left: 0 },
+  { key: "Ticker", label: "Ticker", width: 70, pin: true, left: 35 },
   { key: "Rating_1_Current", label: "R1 T", width: 45, format: "int", gradient: "r1" },
   { key: "Rating_1_Prev1", label: "R1 T-1", width: 45, format: "int", gradient: "r1" },
   { key: "Rating_1_Prev2", label: "R1 T-2", width: 45, format: "int", gradient: "r1" },
   { key: "MA50_GT_MA200", label: "MA50>200", width: 55 },
-  { key: "_sep2", label: "", width: 8, separator: true },
+  { key: "_sep1", label: "", width: 8, separator: true },
   { key: "STRENGTH_ST", label: "ST Str", width: 55, format: "round", gradient: "st" },
   { key: "STRENGTH_LT", label: "LT Str", width: 55, format: "round", gradient: "lt" },
-  { key: "_sep3", label: "", width: 8, separator: true },
+  { key: "_sep2", label: "", width: 8, separator: true },
   { key: "Price", label: "Price", width: 80, format: "price", align: "right" },
   { key: "% Change", label: "%Chg", width: 60, format: "changePct" },
   { key: "Close_vs_MA10", label: "vs MA10", width: 60, format: "changePct", gradient: "ma" },
@@ -42,6 +40,10 @@ const COLUMNS: Column[] = [
   { key: "Close_vs_MA100", label: "vs MA100", width: 60, format: "changePct", gradient: "ma" },
   { key: "Close_vs_MA200", label: "vs MA200", width: 60, format: "changePct", gradient: "ma" },
   { key: "Sector", label: "Sector", width: 60 },
+  { key: "_sep3", label: "", width: 8, separator: true },
+  { key: "Rating_2_Current", label: "R2 T", width: 45, format: "int", gradient: "r2" },
+  { key: "Rating_2_Prev1", label: "R2 T-1", width: 45, format: "int", gradient: "r2" },
+  { key: "Rating_2_Prev2", label: "R2 T-2", width: 45, format: "int", gradient: "r2" },
 ];
 
 // Compute min/max for gradient scaling
@@ -143,9 +145,9 @@ export default function DataTable({ results, totals }: DataTableProps) {
               <th
                 key={i}
                 className={`border border-gray-200 px-1 py-1.5 text-center font-semibold bg-gray-100 whitespace-nowrap ${
-                  col.pin ? "sticky left-0 z-20 bg-gray-100" : ""
+                  col.pin ? "sticky z-20 bg-gray-100" : ""
                 }`}
-                style={{ width: col.width, minWidth: col.width, fontSize: 12 }}
+                style={{ width: col.width, minWidth: col.width, fontSize: 12, left: col.left }}
               >
                 {col.label}
               </th>
@@ -160,7 +162,7 @@ export default function DataTable({ results, totals }: DataTableProps) {
               {COLUMNS.map((col, colIdx) => {
                 if (col.separator) return <td key={colIdx} className="border-none" style={{ width: col.width }} />;
 
-                const value = row[col.key as keyof StockResult];
+                const value = col.key === "_stt" ? rowIdx + 1 : row[col.key as keyof StockResult];
                 const display = formatValue(value, col.format, row.Sector);
                 const style = getCellStyle(col, value, false);
 
@@ -168,9 +170,9 @@ export default function DataTable({ results, totals }: DataTableProps) {
                   <td
                     key={colIdx}
                     className={`border border-gray-100 px-1 py-0.5 text-center ${
-                      col.pin ? "sticky left-0 z-10 bg-white font-medium" : ""
+                      col.pin ? "sticky z-10 bg-white font-medium" : ""
                     } ${col.align === "right" ? "text-right" : ""}`}
-                    style={{ ...style, width: col.width, fontSize: 12 }}
+                    style={{ ...style, width: col.width, fontSize: 12, left: col.left }}
                   >
                     {display}
                   </td>
@@ -192,9 +194,9 @@ export default function DataTable({ results, totals }: DataTableProps) {
                 <td
                   key={colIdx}
                   className={`border border-gray-200 px-1 py-0.5 text-center ${
-                    col.pin ? "sticky left-0 z-10" : ""
+                    col.pin ? "sticky z-10" : ""
                   }`}
-                  style={{ ...style, width: col.width, fontSize: 12, borderTop: "2px solid #6c757d" }}
+                  style={{ ...style, width: col.width, fontSize: 12, borderTop: "2px solid #6c757d", left: col.left }}
                 >
                   {display}
                 </td>
