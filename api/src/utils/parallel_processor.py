@@ -79,6 +79,12 @@ def analyze_single_stock(ticker: str, sector: str, exchange: str, selected_date_
         else:
             prev_price = current_price
 
+        # Previous session's distance to MA, used to detect MA crosses
+        prev_vs_ma = {}
+        for ma in (20, 50, 200):
+            col = f'Close_vs_MA{ma}'
+            prev_vs_ma[f'{col}_Prev'] = df_sorted.iloc[-2].get(col, np.nan) if len(df_sorted) >= 2 else np.nan
+
         price_change = calculate_price_change(current_price, prev_price)
 
         result_row = {
@@ -104,6 +110,7 @@ def analyze_single_stock(ticker: str, sector: str, exchange: str, selected_date_
             'MA50_GT_MA200': 'Yes' if indicators.get('MA50_GT_MA200', False) else 'No',
             'error': None
         }
+        result_row.update(prev_vs_ma)
 
         result_row.update(signals)
 

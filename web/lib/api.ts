@@ -40,6 +40,8 @@ export interface AnalyzeResponse {
     sectors: Record<string, SectorData>;
     breakthrough_up: string;
     breakthrough_down: string;
+    cross_up?: string;
+    cross_down?: string;
   };
   totals: Record<string, number | null>;
   errors: string[];

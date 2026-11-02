@@ -6,6 +6,8 @@ interface SectorSummaryProps {
   sectors: Record<string, SectorData>;
   breakthroughUp: string;
   breakthroughDown: string;
+  crossUp: string;
+  crossDown: string;
 }
 
 const SECTOR_ORDER = [
@@ -24,7 +26,7 @@ function RatingText({ ticker, rating, color }: { ticker: string; rating: number;
   return <span className={colorClass}>{ticker} ({rating})</span>;
 }
 
-export default function SectorSummary({ sectors, breakthroughUp, breakthroughDown }: SectorSummaryProps) {
+export default function SectorSummary({ sectors, breakthroughUp, breakthroughDown, crossUp, crossDown }: SectorSummaryProps) {
   if (!sectors || Object.keys(sectors).length === 0) return null;
 
   return (
@@ -80,6 +82,19 @@ export default function SectorSummary({ sectors, breakthroughUp, breakthroughDow
             <td className="border border-gray-300 p-1 text-center text-sm italic text-gray-700">Nhóm giảm điểm</td>
             <td colSpan={2} className="border border-gray-300 p-1 text-left text-sm italic text-red-600">
               {breakthroughDown || "—"}
+            </td>
+          </tr>
+          {/* MA20/50/200 cross rows */}
+          <tr>
+            <td className="border border-gray-300 p-1 text-center text-sm italic text-gray-700">Cross Up</td>
+            <td colSpan={2} className="border border-gray-300 p-1 text-left text-sm italic text-green-700">
+              {crossUp || "—"}
+            </td>
+          </tr>
+          <tr>
+            <td className="border border-gray-300 p-1 text-center text-sm italic text-gray-700">Cross Down</td>
+            <td colSpan={2} className="border border-gray-300 p-1 text-left text-sm italic text-red-600">
+              {crossDown || "—"}
             </td>
           </tr>
         </tbody>

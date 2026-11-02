@@ -121,12 +121,42 @@ def analyze_sectors_new(df_results):
         if not pd.isna(row['Rating_Change'])
     ])
 
+    cross_up_str, cross_down_str = find_ma_crosses(df_valid)
 
     return {
         'sectors': sector_data,
         'breakthrough_up': breakthrough_up_str if breakthrough_up_str else '',
-        'breakthrough_down': breakthrough_down_str if breakthrough_down_str else ''
+        'breakthrough_down': breakthrough_down_str if breakthrough_down_str else '',
+        'cross_up': cross_up_str,
+        'cross_down': cross_down_str
     }
+
+
+def find_ma_crosses(df_valid, mas=(20, 50, 200)):
+    """
+    Tickers whose close crossed MA20/50/200 this session.
+    Cross up: previous Close_vs_MA < 0 and current >= 0; cross down: the reverse.
+
+    Returns:
+        (cross_up_str, cross_down_str) like "VND (MA20, MA50), SSI (MA200)"
+    """
+    up, down = [], []
+    for _, row in df_valid.iterrows():
+        up_mas, down_mas = [], []
+        for ma in mas:
+            cur = pd.to_numeric(row.get(f'Close_vs_MA{ma}'), errors='coerce')
+            prev = pd.to_numeric(row.get(f'Close_vs_MA{ma}_Prev'), errors='coerce')
+            if pd.isna(cur) or pd.isna(prev):
+                continue
+            if prev < 0 <= cur:
+                up_mas.append(f'MA{ma}')
+            elif cur < 0 <= prev:
+                down_mas.append(f'MA{ma}')
+        if up_mas:
+            up.append(f"{row['Ticker']} ({', '.join(up_mas)})")
+        if down_mas:
+            down.append(f"{row['Ticker']} ({', '.join(down_mas)})")
+    return ', '.join(up), ', '.join(down)
 
 
 def create_sector_dataframe(sector_analysis):
