@@ -6,8 +6,7 @@ interface SectorSummaryProps {
   sectors: Record<string, SectorData>;
   breakthroughUp: string;
   breakthroughDown: string;
-  crossUp: string;
-  crossDown: string;
+  maCrosses: Record<string, { up: string; down: string }>;
 }
 
 const SECTOR_ORDER = [
@@ -21,12 +20,14 @@ const SECTOR_ORDER = [
   "Tech",
 ];
 
+const CROSS_MAS = ["MA20", "MA50", "MA200"];
+
 function RatingText({ ticker, rating, color }: { ticker: string; rating: number; color: string }) {
   const colorClass = color === "green" ? "text-green-700" : color === "red" ? "text-red-600" : "text-black";
   return <span className={colorClass}>{ticker} ({rating})</span>;
 }
 
-export default function SectorSummary({ sectors, breakthroughUp, breakthroughDown, crossUp, crossDown }: SectorSummaryProps) {
+export default function SectorSummary({ sectors, breakthroughUp, breakthroughDown, maCrosses }: SectorSummaryProps) {
   if (!sectors || Object.keys(sectors).length === 0) return null;
 
   return (
@@ -84,19 +85,18 @@ export default function SectorSummary({ sectors, breakthroughUp, breakthroughDow
               {breakthroughDown || "—"}
             </td>
           </tr>
-          {/* MA20/50/200 cross rows */}
-          <tr>
-            <td className="border border-gray-300 p-1 text-center text-sm italic text-gray-700">Cross Up</td>
-            <td colSpan={2} className="border border-gray-300 p-1 text-left text-sm italic text-green-700">
-              {crossUp || "—"}
-            </td>
-          </tr>
-          <tr>
-            <td className="border border-gray-300 p-1 text-center text-sm italic text-gray-700">Cross Down</td>
-            <td colSpan={2} className="border border-gray-300 p-1 text-left text-sm italic text-red-600">
-              {crossDown || "—"}
-            </td>
-          </tr>
+          {/* MA cross rows: cross up in the middle column, cross down on the right */}
+          {CROSS_MAS.map((ma) => (
+            <tr key={ma}>
+              <td className="border border-gray-300 p-1 text-center text-sm italic text-gray-700">Cross {ma}</td>
+              <td className="border border-gray-300 p-1 text-center text-sm italic text-green-700">
+                {maCrosses[ma]?.up || "—"}
+              </td>
+              <td className="border border-gray-300 p-1 text-center text-sm italic text-red-600">
+                {maCrosses[ma]?.down || "—"}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

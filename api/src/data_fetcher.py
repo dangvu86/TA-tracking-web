@@ -6,6 +6,7 @@ import logging
 import time
 
 from .google_sheets_simple import fetch_vnmidcap_from_sheets
+from .tv_index_fetcher import fetch_tv_index_data
 from .google_drive_fetcher import fetch_gdrive_stock_data, is_ticker_in_gdrive
 from .fireant_fetcher import (
     fetch_fireant_data,
@@ -39,7 +40,7 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
     Fetch stock data from appropriate source.
 
     Data Source Priority:
-    1. VNMIDCAP -> Google Sheets (exclusive, vnstock does not provide this index)
+    1. VNMIDCAP -> VNDirect -> SSI -> Google Sheets (FireAnt does not provide this index)
     2. VNINDEX -> FireAnt (primary) -> vnstock -> Google Drive (fallback)
     3. Vietnamese stocks (HOSE/HNX/UPCOM) -> FireAnt (primary) -> vnstock -> Google Drive (fallback)
     4. US indices -> Yahoo Finance
@@ -51,9 +52,12 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
         return cached
 
     try:
-        # Special handling for VNMIDCAP using Google Sheets ONLY
+        # VNMIDCAP: VNDirect -> SSI -> Google Sheets fallback
         if ticker in ['VNMID', 'VNMIDCAP'] or (ticker == 'VNMID' and exchange == ''):
-            df = fetch_vnmidcap_from_sheets()
+            df = fetch_tv_index_data('VNMID', period_days)
+            if df is None or df.empty:
+                logger.warning(f"VNDirect/SSI unavailable for {ticker}, falling back to Google Sheets")
+                df = fetch_vnmidcap_from_sheets()
 
             if df is not None and not df.empty:
                 df = df[df['Date'].dt.date <= end_date.date()]

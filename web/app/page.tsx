@@ -107,8 +107,7 @@ export default function Home() {
               sectors={data.sectors.sectors}
               breakthroughUp={data.sectors.breakthrough_up || ""}
               breakthroughDown={data.sectors.breakthrough_down || ""}
-              crossUp={data.sectors.cross_up || ""}
-              crossDown={data.sectors.cross_down || ""}
+              maCrosses={data.sectors.ma_crosses || {}}
             />
           )}
 
