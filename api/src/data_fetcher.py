@@ -34,6 +34,17 @@ def _set_cache(key, value):
     _cache[key] = value
     _cache_ts[key] = time.time()
 
+# Extra days fetched beyond the window, so trimming by calendar date never runs short
+WINDOW_PAD_DAYS = 7
+
+
+def _trim_window(df: pd.DataFrame, end_date: datetime, period_days: int) -> pd.DataFrame:
+    """Keep bars in [end_date - period_days, end_date] by calendar date, so results
+    depend only on the analysis date, never on when the job runs."""
+    start = (end_date - timedelta(days=period_days)).date()
+    dates = df['Date'].dt.date
+    return df[(dates >= start) & (dates <= end_date.date())]
+
 
 def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, exchange: str = '') -> Optional[pd.DataFrame]:
     """
@@ -46,7 +57,9 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
     4. US indices -> Yahoo Finance
     5. Fallback -> Yahoo Finance
     """
-    cache_key = f"{ticker}_{end_date.date()}_{period_days}_{exchange}"
+    # Fetchers count back from now, so cover the gap between the analysis date and today
+    fetch_days = period_days + max(0, (datetime.now() - end_date).days) + WINDOW_PAD_DAYS
+    cache_key = f"{ticker}_{end_date.date()}_{period_days}_{fetch_days}_{exchange}"
     cached = _get_cached(cache_key)
     if cached is not None:
         return cached
@@ -54,13 +67,13 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
     try:
         # VNMIDCAP: VNDirect -> SSI -> Google Sheets fallback
         if ticker in ['VNMID', 'VNMIDCAP'] or (ticker == 'VNMID' and exchange == ''):
-            df = fetch_tv_index_data('VNMID', period_days)
+            df = fetch_tv_index_data('VNMID', fetch_days)
             if df is None or df.empty:
                 logger.warning(f"VNDirect/SSI unavailable for {ticker}, falling back to Google Sheets")
                 df = fetch_vnmidcap_from_sheets()
 
             if df is not None and not df.empty:
-                df = df[df['Date'].dt.date <= end_date.date()]
+                df = _trim_window(df, end_date, period_days)
                 _set_cache(cache_key, df)
                 return df
             else:
@@ -69,26 +82,26 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
 
         # VNINDEX: FireAnt primary -> vnstock -> Google Drive fallback
         elif ticker == 'VNINDEX':
-            df = fetch_fireant_data(ticker, period_days)
+            df = fetch_fireant_data(ticker, fetch_days)
             if df is not None and not df.empty:
-                df = df[df['Date'].dt.date <= end_date.date()]
+                df = _trim_window(df, end_date, period_days)
                 _set_cache(cache_key, df)
                 return df
             logger.info(f"FireAnt returned no data for {ticker}, falling back to vnstock")
 
             if is_vnstock_ready():
-                df = fetch_vnstock_index_data(ticker, period_days)
+                df = fetch_vnstock_index_data(ticker, fetch_days)
                 if df is not None and not df.empty:
-                    df = df[df['Date'].dt.date <= end_date.date()]
+                    df = _trim_window(df, end_date, period_days)
                     _set_cache(cache_key, df)
                     return df
                 logger.info(f"vnstock returned no data for {ticker}, falling back to Google Drive")
 
             from .google_drive_fetcher import fetch_gdrive_index_data, is_index_in_gdrive
             if is_index_in_gdrive(ticker):
-                df = fetch_gdrive_index_data(ticker, period_days)
+                df = fetch_gdrive_index_data(ticker, fetch_days)
                 if df is not None and not df.empty:
-                    df = df[df['Date'].dt.date <= end_date.date()]
+                    df = _trim_window(df, end_date, period_days)
                     _set_cache(cache_key, df)
                     return df
 
@@ -97,32 +110,32 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
 
         # Vietnamese stocks: FireAnt primary -> vnstock -> Google Drive fallback -> Yahoo
         elif exchange in ['HOSE', 'HNX', 'UPCOM'] or is_ticker_in_gdrive(ticker):
-            df = fetch_fireant_data(ticker, period_days)
+            df = fetch_fireant_data(ticker, fetch_days)
             if df is not None and not df.empty:
-                df = df[df['Date'].dt.date <= end_date.date()]
+                df = _trim_window(df, end_date, period_days)
                 _set_cache(cache_key, df)
                 return df
             logger.info(f"FireAnt returned no data for {ticker}, falling back to vnstock")
 
             if is_vnstock_ready():
-                df = fetch_vnstock_stock_data(ticker, period_days)
+                df = fetch_vnstock_stock_data(ticker, fetch_days)
                 if df is not None and not df.empty:
-                    df = df[df['Date'].dt.date <= end_date.date()]
+                    df = _trim_window(df, end_date, period_days)
                     _set_cache(cache_key, df)
                     return df
                 logger.info(f"vnstock returned no data for {ticker}, falling back to Google Drive")
 
-            df = fetch_gdrive_stock_data(ticker, period_days)
+            df = fetch_gdrive_stock_data(ticker, fetch_days)
 
             if df is not None and not df.empty:
-                df = df[df['Date'].dt.date <= end_date.date()]
+                df = _trim_window(df, end_date, period_days)
                 _set_cache(cache_key, df)
                 return df
             else:
                 logger.info(f"Ticker {ticker} not found in Google Drive, trying Yahoo Finance...")
 
         # Use Yahoo Finance (for US indices or fallback)
-        start_date = end_date - timedelta(days=period_days)
+        start_date = end_date - timedelta(days=period_days + WINDOW_PAD_DAYS)
 
         if exchange in ['HOSE', 'HNX', 'UPCOM']:
             yahoo_ticker = f"{ticker}.VN"
@@ -138,7 +151,7 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
 
         df.reset_index(inplace=True)
         df.columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends', 'Stock Splits']
-        df = df[df['Date'].dt.date <= end_date.date()]
+        df = _trim_window(df, end_date, period_days)
         # Drop rows where Close is NaN (Yahoo sometimes returns in-progress rows with no price yet)
         df = df.dropna(subset=['Close'])
 
