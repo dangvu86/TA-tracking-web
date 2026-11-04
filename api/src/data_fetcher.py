@@ -187,6 +187,12 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
         df.reset_index(inplace=True)
         df.columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends', 'Stock Splits']
         df = _trim_window(df, end_date, period_days)
+        if ticker.startswith('^'):
+            # US indices: only sessions before the VN analysis date. On VN day D the last
+            # finished US session is D-1; ^VIX is also quoted overnight (from ~3:00 ET, i.e.
+            # ~15:15 VN in winter, ~14:15 in summer), so a later run would pick up a
+            # provisional D bar (2026-11-04 rerun at 15:32: 19.06 vs the 15:00 run's 20.83).
+            df = df[df['Date'].dt.date < end_date.date()]
         # Drop rows where Close is NaN (Yahoo sometimes returns in-progress rows with no price yet)
         df = df.dropna(subset=['Close'])
 

@@ -44,3 +44,19 @@ def test_vndirect_down_keeps_fireant(monkeypatch):
     _setup(monkeypatch, date(2026, 11, 4), vnd=None)
     df = data_fetcher.fetch_stock_data("VNINDEX", datetime(2026, 11, 4))
     assert df["Close"].iloc[-1] == 1732.51
+
+
+def test_us_index_ignores_bar_dated_analysis_day(monkeypatch):
+    class FakeTicker:
+        def __init__(self, t):
+            pass
+
+        def history(self, start, end):
+            idx = pd.DatetimeIndex(["2026-11-02", "2026-11-03", "2026-11-04"], name="Date").tz_localize("America/Chicago")
+            return pd.DataFrame({"Open": 1.0, "High": 1.0, "Low": 1.0, "Close": [21.15, 20.83, 19.06],
+                                 "Volume": 0, "Dividends": 0, "Stock Splits": 0}, index=idx)
+
+    monkeypatch.setattr(data_fetcher.yf, "Ticker", FakeTicker)
+    data_fetcher._cache.clear()
+    df = data_fetcher.fetch_stock_data("^VIX", datetime(2026, 11, 4))
+    assert list(df["Close"]) == [21.15, 20.83]
