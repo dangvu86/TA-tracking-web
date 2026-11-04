@@ -60,10 +60,10 @@ def _to_frame(payload: dict) -> Optional[pd.DataFrame]:
     return df if not df.empty else None
 
 
-def fetch_tv_index_data(symbol: str, period_days: int = 365) -> Optional[pd.DataFrame]:
+def fetch_tv_index_data(symbol: str, period_days: int = 365, use_cache: bool = True) -> Optional[pd.DataFrame]:
     """Fetch daily OHLCV for an index from VNDirect, falling back to SSI."""
     cache_key = f"tv_{symbol}_{period_days}"
-    if cache_key in _cache and time.time() - _cache_ts.get(cache_key, 0) < CACHE_TTL:
+    if use_cache and cache_key in _cache and time.time() - _cache_ts.get(cache_key, 0) < CACHE_TTL:
         return _cache[cache_key]
 
     end = datetime.now() + timedelta(days=1)

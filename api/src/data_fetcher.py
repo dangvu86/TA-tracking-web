@@ -46,13 +46,47 @@ def _trim_window(df: pd.DataFrame, end_date: datetime, period_days: int) -> pd.D
     return df[(dates >= start) & (dates <= end_date.date())]
 
 
+def _vn_today():
+    from zoneinfo import ZoneInfo
+    return datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date()
+
+
+def _patch_today_index_bar(df: pd.DataFrame, symbol: str, end_date: datetime) -> pd.DataFrame:
+    """FireAnt's daily index bar lags after the close (2026-11-04 15:00: close 1732.51 and
+    volume 609M vs the real 1733.02 / 785M), while its stock bars are final. For a run on
+    today's session only, take today's index bar from VNDirect (same source the browser
+    uses intraday). Older bars stay on FireAnt: OHLV of past days differ between the two."""
+    day = end_date.date()
+    if day != _vn_today():
+        return df
+    try:
+        live = fetch_tv_index_data(symbol, 10, use_cache=False)
+    except Exception as e:
+        logger.warning(f"[{symbol}] VNDirect today bar unavailable: {e}")
+        return df
+    if live is None or live.empty:
+        return df
+    row = live[live['Date'].dt.date == day]
+    if row.empty:
+        return df
+    cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+    out = df[df['Date'].dt.date != day]
+    new = row.iloc[[-1]].copy()
+    for c in df.columns:
+        if c not in new.columns:
+            new[c] = 0
+    out = pd.concat([out, new[df.columns]], ignore_index=True).sort_values('Date').reset_index(drop=True)
+    logger.info(f"[{symbol}] today's bar from VNDirect: {row.iloc[-1][cols].to_dict()}")
+    return out
+
+
 def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, exchange: str = '') -> Optional[pd.DataFrame]:
     """
     Fetch stock data from appropriate source.
 
     Data Source Priority:
     1. VNMIDCAP -> VNDirect -> SSI -> Google Sheets (FireAnt does not provide this index)
-    2. VNINDEX -> FireAnt (primary) -> vnstock -> Google Drive (fallback)
+    2. VNINDEX -> FireAnt (primary; today's bar from VNDirect) -> vnstock -> Google Drive (fallback)
     3. Vietnamese stocks (HOSE/HNX/UPCOM) -> FireAnt (primary) -> vnstock -> Google Drive (fallback)
     4. US indices -> Yahoo Finance
     5. Fallback -> Yahoo Finance
@@ -84,6 +118,7 @@ def fetch_stock_data(ticker: str, end_date: datetime, period_days: int = 365, ex
         elif ticker == 'VNINDEX':
             df = fetch_fireant_data(ticker, fetch_days)
             if df is not None and not df.empty:
+                df = _patch_today_index_bar(df, ticker, end_date)
                 df = _trim_window(df, end_date, period_days)
                 _set_cache(cache_key, df)
                 return df
