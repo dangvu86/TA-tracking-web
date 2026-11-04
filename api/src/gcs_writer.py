@@ -1,12 +1,14 @@
 """Google Cloud Storage writer for TA analysis results.
 
-Uploads to a public bucket with two paths:
+Uploads to a public bucket:
   - analysis/{YYYY-MM-DD}.json   (historical archive, long cache)
   - latest.json                  (pointer to most recent, short cache)
+  - history/...                  (price history for in-browser intraday calc)
 
 Uses Application Default Credentials (automatic on Cloud Run).
 """
 
+import gzip
 import json
 import logging
 from typing import Optional
@@ -80,3 +82,23 @@ def get_analysis(bucket_name: str, date_str: Optional[str] = None) -> Optional[d
     except Exception as e:
         logger.warning(f"GCS read failed: {e}")
         return None
+
+
+def upload_history(bucket_name: str, path: str, payload: dict, cache_control: str) -> bool:
+    """Upload a price-history file gzip-encoded (about 1.2MB raw, ~400KB gzipped)."""
+    if not _GCS_READY:
+        logger.error("GCS library unavailable; cannot upload")
+        return False
+
+    try:
+        client = storage.Client()
+        blob = client.bucket(bucket_name).blob(path)
+        blob.cache_control = cache_control
+        blob.content_encoding = "gzip"
+        data = gzip.compress(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+        blob.upload_from_string(data, content_type="application/json; charset=utf-8")
+        logger.info(f"Uploaded gs://{bucket_name}/{path} ({len(data):,} bytes gzipped)")
+        return True
+    except Exception as e:
+        logger.error(f"History upload failed: {e}", exc_info=True)
+        return False

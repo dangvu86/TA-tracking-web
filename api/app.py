@@ -8,6 +8,7 @@ import time
 import math
 from datetime import datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,7 +23,9 @@ from src.utils.stock_loader import load_stock_list
 from src.utils.parallel_processor import analyze_stocks_parallel
 from src.utils.sector_analysis import analyze_sectors_new
 from src.data_fetcher import get_last_trading_date
-from src.gcs_writer import upload_analysis
+from src.gcs_writer import upload_analysis, upload_history
+from src.history_export import build_history_payload
+from src.utils import parallel_processor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -254,6 +257,18 @@ def generate_and_upload(
         if not uploaded:
             raise HTTPException(status_code=500, detail="GCS upload failed (see logs)")
 
+        # Bars used for this final, for the daily parity check of the browser calc
+        try:
+            csv_path = os.path.join(os.path.dirname(__file__), "TA_Tracking_List.csv")
+            history = build_history_payload(
+                load_stock_list(csv_path), selected_date, frames=dict(parallel_processor.used_frames)
+            )
+            if not upload_history(bucket, f"history/final/{date_str}.json", history, "public, max-age=3600"):
+                logger.error(f"history/final/{date_str}.json not written")
+        except Exception as e:
+            # Never block the final numbers on the history export
+            logger.error(f"History export error: {e}", exc_info=True)
+
         return {
             "status": "ok",
             "date": date_str,
@@ -267,6 +282,34 @@ def generate_and_upload(
     except Exception as e:
         logger.error(f"Generate error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")  # Cloud Run runs in UTC
+
+
+@app.post("/api/history-base")
+def publish_history_base(x_generate_token: str = Header(None, alias="X-Generate-Token")):
+    """Publish today's pre-open price history for in-browser intraday calculation.
+
+    Triggered by Cloud Scheduler at 08:45 VN, Mon-Fri. Re-fetches so corporate-action
+    adjustments applied by the source overnight are included; today's bar is dropped.
+    """
+    expected_token = os.getenv("GENERATE_TOKEN")
+    if not expected_token:
+        raise HTTPException(status_code=500, detail="GENERATE_TOKEN not configured on server")
+    if x_generate_token != expected_token:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Generate-Token")
+    bucket = os.getenv("GCS_BUCKET")
+    if not bucket:
+        raise HTTPException(status_code=500, detail="GCS_BUCKET not configured on server")
+
+    today = datetime.now(VN_TZ).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
+    csv_path = os.path.join(os.path.dirname(__file__), "TA_Tracking_List.csv")
+    history = build_history_payload(load_stock_list(csv_path), today, include_as_of=False)
+    if not upload_history(bucket, "history/base.json", history, "public, max-age=60"):
+        raise HTTPException(status_code=500, detail="History upload failed (see logs)")
+    missing = [t["Ticker"] for t in history["tickers"] if not t["d"]]
+    return {"status": "ok", "as_of": history["as_of"], "tickers": len(history["tickers"]), "missing": missing}
 
 
 if __name__ == "__main__":

@@ -16,6 +16,10 @@ from .signal_counter import count_signals, calculate_price_change, calculate_rat
 
 logger = logging.getLogger(__name__)
 
+# Ticker -> price DataFrame used by the latest analyze_stocks_parallel run,
+# published as history/final/<date>.json so parity checks use identical bars.
+used_frames: Dict[str, pd.DataFrame] = {}
+
 
 def analyze_single_stock(ticker: str, sector: str, exchange: str, selected_date_dt: datetime) -> Dict:
     """Analyze a single stock - extracted from main.py for parallel processing"""
@@ -30,6 +34,7 @@ def analyze_single_stock(ticker: str, sector: str, exchange: str, selected_date_
                 'error': None
             }
 
+        used_frames[ticker] = df
         df_with_indicators = calculate_all_indicators(df)
         indicators = get_latest_indicators(df_with_indicators, pd.Timestamp(selected_date_dt))
 
@@ -143,6 +148,7 @@ def analyze_stocks_parallel(stock_df: pd.DataFrame, selected_date_dt: datetime,
             'exchange': row['Exchange']
         })
 
+    used_frames.clear()
     total_tasks = len(tasks)
     completed_count = 0
 
