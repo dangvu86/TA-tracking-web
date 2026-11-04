@@ -4,13 +4,18 @@ import { useState, useEffect, useCallback } from "react";
 import { fetchLatestStatic, AnalyzeResponse } from "@/lib/api";
 import SectorSummary from "@/components/SectorSummary";
 import DataTable from "@/components/DataTable";
+import LiveBadge from "@/components/LiveBadge";
+import { useLiveAnalysis } from "@/lib/live/useLiveAnalysis";
 
 export default function Home() {
   const [date, setDate] = useState("");
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<AnalyzeResponse | null>(null);
+  const [finalData, setData] = useState<AnalyzeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadedDate, setLoadedDate] = useState<string | null>(null);
+  const [latestDate, setLatestDate] = useState<string | null>(null);
+  // Intraday provisional numbers only on the latest view; older dates show the archive as-is
+  const { data, state: liveState } = useLiveAnalysis(finalData, loadedDate !== null && loadedDate === latestDate);
 
   // Load pre-computed latest data on mount
   useEffect(() => {
@@ -19,6 +24,7 @@ export default function Home() {
         setData(result);
         setDate(result.meta.date);
         setLoadedDate(result.meta.date);
+        setLatestDate(result.meta.date);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load data"));
   }, []);
@@ -73,6 +79,9 @@ export default function Home() {
             {loadedDate !== date && ` | Selected: ${date} - Click Refresh to update`}
           </span>
         )}
+        {loadedDate && !loading && loadedDate === latestDate && (
+          <LiveBadge state={liveState} finalDate={latestDate} />
+        )}
         {!data && !loading && !error && (
           <span className="text-sm text-yellow-600">Loading latest data...</span>
         )}
@@ -97,7 +106,7 @@ export default function Home() {
           {/* Meta */}
           {data.meta && (
             <div className="text-xs text-gray-500 mb-2">
-              {data.meta.total_stocks} stocks analyzed in {data.meta.elapsed_seconds}s
+              {data.meta.total_stocks} stocks{liveState.kind === "live" ? "" : ` analyzed in ${data.meta.elapsed_seconds}s`}
             </div>
           )}
 
