@@ -105,7 +105,8 @@ export function useLiveAnalysis(finalData: AnalyzeResponse | null, isLatestView:
           // keep waiting for the 15:00 final (run + 5-min file cache), but not forever
           if (p === "after" && m >= STOP_WAITING_FINAL) return;
         }
-        if ((p === "open" || p === "closing") && document.visibilityState === "visible") await refresh(today);
+        // lunch included: a page opened at 12:00 still shows the morning session
+        if ((p === "open" || p === "lunch" || p === "closing") && document.visibilityState === "visible") await refresh(today);
         next = p === "pre" && m < 8 * 60 + 55 ? (9 * 60 - m) * 60_000 : POLL_MS; // sleep until the open
       } catch (e) {
         setState({ kind: "error", message: e instanceof Error ? e.message : String(e) });

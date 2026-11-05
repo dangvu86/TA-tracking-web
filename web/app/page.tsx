@@ -6,16 +6,24 @@ import SectorSummary from "@/components/SectorSummary";
 import DataTable from "@/components/DataTable";
 import LiveBadge from "@/components/LiveBadge";
 import { useLiveAnalysis } from "@/lib/live/useLiveAnalysis";
+import { vnToday } from "@/lib/live/session";
 
 export default function Home() {
   const [date, setDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [finalData, setData] = useState<AnalyzeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loadedDate, setLoadedDate] = useState<string | null>(null);
-  const [latestDate, setLatestDate] = useState<string | null>(null);
-  // Intraday provisional numbers only on the latest view; older dates show the archive as-is
-  const { data, state: liveState } = useLiveAnalysis(finalData, loadedDate !== null && loadedDate === latestDate);
+  // "Latest" view follows today's session (intraday provisional numbers until the 15:00
+  // final lands); picking a past date shows that day's archive and never goes live.
+  const [followLatest, setFollowLatest] = useState(true);
+  const { data, state: liveState } = useLiveAnalysis(finalData, followLatest);
+  // The date actually on screen: today while live, else the final/archive date
+  const shownDate = data?.meta.date ?? null;
+
+  // While following the latest view, the date box tracks what is shown (05/11 once live data arrives)
+  useEffect(() => {
+    if (followLatest && shownDate) setDate(shownDate);
+  }, [followLatest, shownDate]);
 
   // Load pre-computed latest data on mount
   useEffect(() => {
@@ -23,8 +31,6 @@ export default function Home() {
       .then((result) => {
         setData(result);
         setDate(result.meta.date);
-        setLoadedDate(result.meta.date);
-        setLatestDate(result.meta.date);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load data"));
   }, []);
@@ -34,10 +40,18 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      // Fetch pre-computed archive for the selected date (no realtime compute)
-      const result = await fetchLatestStatic(date);
-      setData(result);
-      setLoadedDate(date);
+      const today = vnToday();
+      if (date > today) throw new Error(`Chưa có dữ liệu cho ngày ${date}`);
+      if (date === today) {
+        // Today: latest final, which goes live during the session if today's final is not out yet
+        setData(await fetchLatestStatic());
+        setFollowLatest(true);
+      } else {
+        // Past date: the pre-computed archive as-is
+        const result = await fetchLatestStatic(date);
+        setFollowLatest(false);
+        setData(result);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load data for this date");
     } finally {
@@ -73,15 +87,13 @@ export default function Home() {
         </button>
 
         {/* Status */}
-        {loadedDate && !loading && (
+        {shownDate && !loading && (
           <span className="text-sm text-green-700">
-            Data loaded for: {loadedDate}
-            {loadedDate !== date && ` | Selected: ${date} - Click Refresh to update`}
+            Data loaded for: {shownDate}
+            {shownDate !== date && ` | Selected: ${date} - Click Load Date to update`}
           </span>
         )}
-        {loadedDate && !loading && loadedDate === latestDate && (
-          <LiveBadge state={liveState} finalDate={latestDate} />
-        )}
+        {shownDate && !loading && <LiveBadge state={liveState} finalDate={shownDate} />}
         {!data && !loading && !error && (
           <span className="text-sm text-yellow-600">Loading latest data...</span>
         )}
